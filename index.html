@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5 таймеров с полосами</title>
+    <title>5 сохраняемых таймеров</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,7 +13,6 @@
 
         body {
             padding: 0 500px;
-            /* отступы слева и справа по 500px */
             background: #f5f5f5;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding-top: 20px;
@@ -36,7 +35,6 @@
             width: 100%;
         }
 
-        /* Каждая строка таймера */
         .timer-row {
             display: flex;
             align-items: center;
@@ -52,7 +50,6 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
         }
 
-        /* Левая секция — название */
         .left-section {
             flex: 0 0 180px;
             display: flex;
@@ -79,7 +76,6 @@
             border-color: #e74c3c;
         }
 
-        /* Центр — полоса и время */
         .progress-wrapper {
             flex: 1;
             display: flex;
@@ -87,7 +83,6 @@
             align-items: center;
             gap: 4px;
             min-width: 0;
-            /* чтобы flex не переполнял */
         }
 
         .progress-track {
@@ -128,7 +123,6 @@
             min-height: 20px;
         }
 
-        /* Правая секция — дата */
         .right-section {
             flex: 0 0 220px;
             display: flex;
@@ -155,7 +149,6 @@
             border-color: #e74c3c;
         }
 
-        /* Адаптивность */
         @media (max-width: 1200px) {
             body {
                 padding: 0 20px;
@@ -198,21 +191,18 @@
     </style>
 </head>
 <body>
-    <h1 class="page-title">⏳ 5 таймеров</h1>
+    <h1 class="page-title">⏳ 5 таймеров (сохранение)</h1>
 
-    <div class="timer-container" id="timerContainer">
-        <!-- Каждая строка будет вставлена через JavaScript для удобства -->
-    </div>
+    <div class="timer-container" id="timerContainer"></div>
 
     <script>
         (function() {
-            // Количество таймеров
             const TIMER_COUNT = 5;
+            const STORAGE_KEY_PREFIX = 'timerData_';
 
-            // Контейнер
             const container = document.getElementById('timerContainer');
 
-            // Функция создания HTML для одного таймера с индексом i
+            // Функция создания HTML для одного таймера
             function createTimerHTML(index) {
                 const nameId = `projectName_${index}`;
                 const dateId = `endDate_${index}`;
@@ -239,40 +229,81 @@
                 `;
             }
 
-            // Генерируем 5 строк
+            // Генерация строк
             for (let i = 0; i < TIMER_COUNT; i++) {
                 container.insertAdjacentHTML('beforeend', createTimerHTML(i));
             }
 
-            // Теперь инициализируем каждый таймер
+            // Вспомогательные функции для работы с localStorage
+            function saveTimerData(index, data) {
+                localStorage.setItem(STORAGE_KEY_PREFIX + index, JSON.stringify(data));
+            }
+
+            function loadTimerData(index) {
+                const raw = localStorage.getItem(STORAGE_KEY_PREFIX + index);
+                if (!raw) return null;
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            // Инициализация каждого таймера
             const timerRows = document.querySelectorAll('.timer-row');
 
             timerRows.forEach((row, index) => {
-                // Элементы внутри строки
                 const nameInput = row.querySelector('.left-section input');
                 const endDateInput = row.querySelector('.right-section input');
                 const progressFill = row.querySelector('.progress-fill');
                 const timeLeftDisplay = row.querySelector('.time-left');
 
-                // Переменные состояния для этого таймера
-                let endTime = null; // timestamp
-                let startTime = null; // timestamp начала отсчёта
+                // Состояние
+                let endTime = null;
+                let startTime = null;
                 let timerInterval = null;
 
-                // Установка начальной даты (через 1 час + смещение на индекс, чтобы даты различались)
-                function setDefaultDate() {
+                // Функция сохранения текущих данных
+                function saveCurrentData() {
+                    const data = {
+                        name: nameInput.value,
+                        endDate: endDateInput.value,
+                        startTime: startTime
+                    };
+                    saveTimerData(index, data);
+                }
+
+                // Попытка восстановить данные из localStorage
+                const saved = loadTimerData(index);
+                if (saved) {
+                    // Восстанавливаем имя
+                    if (saved.name !== undefined) {
+                        nameInput.value = saved.name;
+                    }
+                    // Восстанавливаем дату
+                    if (saved.endDate !== undefined && saved.endDate) {
+                        endDateInput.value = saved.endDate;
+                    }
+                    // Восстанавливаем startTime (если есть)
+                    if (saved.startTime !== undefined && saved.startTime !== null) {
+                        startTime = saved.startTime;
+                    }
+                } else {
+                    // Дефолтная дата: +1 час + смещение
                     const now = new Date();
-                    // Смещаем на index * 2 минуты, чтобы у каждого была своя дата
-                    const future = new Date(now.getTime() + (60 + index * 2) * 60 * 1000); // +1 час + index*2 минут
+                    const future = new Date(now.getTime() + (60 + index * 2) * 60 * 1000);
                     const year = future.getFullYear();
                     const month = String(future.getMonth() + 1).padStart(2, '0');
                     const day = String(future.getDate()).padStart(2, '0');
                     const hours = String(future.getHours()).padStart(2, '0');
                     const minutes = String(future.getMinutes()).padStart(2, '0');
                     endDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                    startTime = null; // будет установлен при первом запуске
+                    // Сохраним дефолтные данные
+                    saveCurrentData();
                 }
 
-                // Чтение даты из поля и обновление endTime
+                // Функция обновления endTime из поля
                 function updateEndTime() {
                     const val = endDateInput.value;
                     if (!val) {
@@ -287,7 +318,7 @@
                     endTime = dt.getTime();
                 }
 
-                // Основная функция обновления таймера
+                // Основное обновление таймера
                 function updateTimer() {
                     if (endTime === null) {
                         progressFill.style.width = '0%';
@@ -315,6 +346,7 @@
                     // Если startTime не установлен, устанавливаем сейчас
                     if (startTime === null) {
                         startTime = now;
+                        saveCurrentData(); // сохраняем стартовое время
                     }
 
                     const totalDuration = endTime - startTime;
@@ -351,40 +383,43 @@
                     }
                 }
 
-                // Сброс и запуск таймера для данного экземпляра
+                // Сброс и запуск таймера (при изменении даты или загрузке)
                 function resetTimer() {
-                    // Очищаем старый интервал
                     if (timerInterval) {
                         clearInterval(timerInterval);
                         timerInterval = null;
                     }
                     updateEndTime();
                     if (endTime !== null) {
-                        startTime = Date.now(); // сбрасываем начало
+                        // При смене даты сбрасываем startTime на текущий момент,
+                        // чтобы полоса начиналась с 100% прямо сейчас.
+                        startTime = Date.now();
+                        saveCurrentData();
                         timerInterval = setInterval(updateTimer, 1000);
-                        updateTimer(); // сразу обновить
+                        updateTimer();
                     } else {
-                        // дата не задана
                         progressFill.style.width = '0%';
                         progressFill.textContent = '0%';
                         progressFill.classList.add('expired');
                         timeLeftDisplay.textContent = 'Укажите дату';
+                        saveCurrentData();
                     }
                 }
 
                 // Обработчик изменения даты
-                endDateInput.addEventListener('change', resetTimer);
-
-                // Обработчик изменения названия (не влияет на таймер, но можно использовать)
-                nameInput.addEventListener('input', function() {
-                    // Ничего не делаем с таймером, просто храним
+                endDateInput.addEventListener('change', function() {
+                    resetTimer();
                 });
 
-                // Инициализация
-                setDefaultDate();
+                // Обработчик изменения названия – сохраняем
+                nameInput.addEventListener('input', function() {
+                    saveCurrentData();
+                });
+
+                // Запускаем таймер
                 resetTimer();
 
-                // Сохраним ссылки на функции и переменные в объект строки для возможного отладочного доступа
+                // Сохраняем ссылки для отладки, если нужно
                 row._timerData = {
                     nameInput,
                     endDateInput,
@@ -394,7 +429,8 @@
                     startTime,
                     timerInterval,
                     resetTimer,
-                    updateTimer
+                    updateTimer,
+                    saveCurrentData
                 };
             });
         })();
