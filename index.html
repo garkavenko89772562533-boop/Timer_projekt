@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5 сохраняемых таймеров</title>
+    <title>5 таймеров с начальной и конечной датой</title>
     <style>
         * {
             box-sizing: border-box;
@@ -44,6 +44,7 @@
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
             transition: box-shadow 0.2s;
+            flex-wrap: wrap;
         }
 
         .timer-row:hover {
@@ -51,10 +52,10 @@
         }
 
         .left-section {
-            flex: 0 0 180px;
+            flex: 0 0 200px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
 
         .left-section label {
@@ -67,9 +68,10 @@
             padding: 6px 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 14px;
             outline: none;
             transition: border-color 0.2s;
+            width: 100%;
         }
 
         .left-section input:focus {
@@ -82,7 +84,7 @@
             flex-direction: column;
             align-items: center;
             gap: 4px;
-            min-width: 0;
+            min-width: 150px;
         }
 
         .progress-track {
@@ -127,7 +129,7 @@
             flex: 0 0 220px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
 
         .right-section label {
@@ -140,9 +142,10 @@
             padding: 6px 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 14px;
             outline: none;
             transition: border-color 0.2s;
+            width: 100%;
         }
 
         .right-section input:focus {
@@ -154,10 +157,6 @@
                 padding: 0 20px;
                 padding-top: 20px;
                 padding-bottom: 20px;
-            }
-            .timer-row {
-                flex-wrap: wrap;
-                justify-content: center;
             }
             .left-section,
             .right-section {
@@ -191,21 +190,22 @@
     </style>
 </head>
 <body>
-    <h1 class="page-title">⏳ 5 таймеров (сохранение)</h1>
+    <h1 class="page-title">⏳ 5 таймеров (старт → финиш)</h1>
 
     <div class="timer-container" id="timerContainer"></div>
 
     <script>
         (function() {
             const TIMER_COUNT = 5;
-            const STORAGE_KEY_PREFIX = 'timerData_';
+            const STORAGE_KEY_PREFIX = 'timerData_v2_';
 
             const container = document.getElementById('timerContainer');
 
             // Функция создания HTML для одного таймера
             function createTimerHTML(index) {
                 const nameId = `projectName_${index}`;
-                const dateId = `endDate_${index}`;
+                const startId = `startDate_${index}`;
+                const endId = `endDate_${index}`;
                 const fillId = `progressFill_${index}`;
                 const timeLeftId = `timeLeft_${index}`;
 
@@ -214,6 +214,8 @@
                         <div class="left-section">
                             <label for="${nameId}">Название</label>
                             <input type="text" id="${nameId}" placeholder="Проект" value="Проект ${index + 1}">
+                            <label for="${startId}" style="margin-top:4px;">Дата старта</label>
+                            <input type="datetime-local" id="${startId}">
                         </div>
                         <div class="progress-wrapper">
                             <div class="progress-track">
@@ -222,8 +224,8 @@
                             <div class="time-left" id="${timeLeftId}">Осталось: --</div>
                         </div>
                         <div class="right-section">
-                            <label for="${dateId}">Дата окончания</label>
-                            <input type="datetime-local" id="${dateId}">
+                            <label for="${endId}">Дата окончания</label>
+                            <input type="datetime-local" id="${endId}">
                         </div>
                     </div>
                 `;
@@ -253,85 +255,104 @@
             const timerRows = document.querySelectorAll('.timer-row');
 
             timerRows.forEach((row, index) => {
-                const nameInput = row.querySelector('.left-section input');
-                const endDateInput = row.querySelector('.right-section input');
+                const nameInput = row.querySelector('.left-section input[type="text"]');
+                const startDateInput = row.querySelector('.left-section input[type="datetime-local"]');
+                const endDateInput = row.querySelector('.right-section input[type="datetime-local"]');
                 const progressFill = row.querySelector('.progress-fill');
                 const timeLeftDisplay = row.querySelector('.time-left');
 
                 // Состояние
-                let endTime = null;
-                let startTime = null;
+                let startTime = null; // timestamp начала
+                let endTime = null;   // timestamp окончания
                 let timerInterval = null;
 
-                // Функция сохранения текущих данных
+                // Функция сохранения всех данных
                 function saveCurrentData() {
                     const data = {
                         name: nameInput.value,
-                        endDate: endDateInput.value,
-                        startTime: startTime
+                        startDate: startDateInput.value,
+                        endDate: endDateInput.value
                     };
                     saveTimerData(index, data);
                 }
 
-                // Попытка восстановить данные из localStorage
+                // Восстановление из localStorage
                 const saved = loadTimerData(index);
                 if (saved) {
-                    // Восстанавливаем имя
-                    if (saved.name !== undefined) {
-                        nameInput.value = saved.name;
-                    }
-                    // Восстанавливаем дату
-                    if (saved.endDate !== undefined && saved.endDate) {
-                        endDateInput.value = saved.endDate;
-                    }
-                    // Восстанавливаем startTime (если есть)
-                    if (saved.startTime !== undefined && saved.startTime !== null) {
-                        startTime = saved.startTime;
-                    }
+                    if (saved.name !== undefined) nameInput.value = saved.name;
+                    if (saved.startDate !== undefined) startDateInput.value = saved.startDate;
+                    if (saved.endDate !== undefined) endDateInput.value = saved.endDate;
                 } else {
-                    // Дефолтная дата: +1 час + смещение
+                    // Дефолтные даты: старт = сейчас, окончание = через час + смещение
                     const now = new Date();
-                    const future = new Date(now.getTime() + (60 + index * 2) * 60 * 1000);
-                    const year = future.getFullYear();
-                    const month = String(future.getMonth() + 1).padStart(2, '0');
-                    const day = String(future.getDate()).padStart(2, '0');
-                    const hours = String(future.getHours()).padStart(2, '0');
-                    const minutes = String(future.getMinutes()).padStart(2, '0');
-                    endDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-                    startTime = null; // будет установлен при первом запуске
-                    // Сохраним дефолтные данные
+                    const start = new Date(now);
+                    const end = new Date(now.getTime() + (60 + index * 2) * 60 * 1000);
+                    const format = (d) => {
+                        const y = d.getFullYear();
+                        const m = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const h = String(d.getHours()).padStart(2, '0');
+                        const min = String(d.getMinutes()).padStart(2, '0');
+                        return `${y}-${m}-${day}T${h}:${min}`;
+                    };
+                    startDateInput.value = format(start);
+                    endDateInput.value = format(end);
+                    // Сохраняем дефолтные данные
                     saveCurrentData();
                 }
 
-                // Функция обновления endTime из поля
-                function updateEndTime() {
-                    const val = endDateInput.value;
-                    if (!val) {
-                        endTime = null;
-                        return;
+                // Функция обновления временных меток из полей
+                function updateTimestamps() {
+                    const startVal = startDateInput.value;
+                    const endVal = endDateInput.value;
+                    if (startVal) {
+                        const dt = new Date(startVal);
+                        startTime = isNaN(dt.getTime()) ? null : dt.getTime();
+                    } else {
+                        startTime = null;
                     }
-                    const dt = new Date(val);
-                    if (isNaN(dt.getTime())) {
+                    if (endVal) {
+                        const dt = new Date(endVal);
+                        endTime = isNaN(dt.getTime()) ? null : dt.getTime();
+                    } else {
                         endTime = null;
-                        return;
                     }
-                    endTime = dt.getTime();
                 }
 
                 // Основное обновление таймера
                 function updateTimer() {
-                    if (endTime === null) {
+                    updateTimestamps();
+
+                    if (startTime === null || endTime === null) {
                         progressFill.style.width = '0%';
                         progressFill.textContent = '0%';
                         progressFill.classList.add('expired');
-                        timeLeftDisplay.textContent = 'Укажите дату';
+                        timeLeftDisplay.textContent = 'Укажите даты старта и окончания';
                         return;
                     }
 
                     const now = Date.now();
-                    const diff = endTime - now;
+                    const totalDuration = endTime - startTime;
+                    if (totalDuration <= 0) {
+                        progressFill.style.width = '0%';
+                        progressFill.textContent = '0%';
+                        progressFill.classList.add('expired');
+                        timeLeftDisplay.textContent = 'Ошибка: старт позже окончания';
+                        return;
+                    }
 
-                    if (diff <= 0) {
+                    // Если текущее время раньше старта — полная полоса
+                    if (now <= startTime) {
+                        progressFill.style.width = '100%';
+                        progressFill.textContent = '100%';
+                        progressFill.classList.remove('expired');
+                        const remaining = endTime - startTime;
+                        timeLeftDisplay.textContent = 'Ещё не начался';
+                        return;
+                    }
+
+                    // Если текущее время после окончания — полоса 0%
+                    if (now >= endTime) {
                         progressFill.style.width = '0%';
                         progressFill.textContent = '0%';
                         progressFill.classList.add('expired');
@@ -343,29 +364,15 @@
                         return;
                     }
 
-                    // Если startTime не установлен, устанавливаем сейчас
-                    if (startTime === null) {
-                        startTime = now;
-                        saveCurrentData(); // сохраняем стартовое время
-                    }
-
-                    const totalDuration = endTime - startTime;
-                    if (totalDuration <= 0) {
-                        progressFill.style.width = '0%';
-                        progressFill.textContent = '0%';
-                        progressFill.classList.add('expired');
-                        timeLeftDisplay.textContent = 'Время истекло!';
-                        return;
-                    }
-
+                    // Прогресс: сколько прошло от старта
                     const elapsed = now - startTime;
-                    let progress = Math.min(elapsed / totalDuration, 1);
+                    let progress = elapsed / totalDuration; // 0..1
                     const percent = Math.max((1 - progress) * 100, 0);
                     progressFill.style.width = percent + '%';
                     progressFill.textContent = Math.round(percent) + '%';
                     progressFill.classList.remove('expired');
 
-                    // Отображение оставшегося времени
+                    // Отображение оставшегося времени до окончания
                     const remaining = endTime - now;
                     if (remaining > 0) {
                         const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
@@ -383,55 +390,41 @@
                     }
                 }
 
-                // Сброс и запуск таймера (при изменении даты или загрузке)
+                // Запуск/перезапуск таймера
                 function resetTimer() {
                     if (timerInterval) {
                         clearInterval(timerInterval);
                         timerInterval = null;
                     }
-                    updateEndTime();
-                    if (endTime !== null) {
-                        // При смене даты сбрасываем startTime на текущий момент,
-                        // чтобы полоса начиналась с 100% прямо сейчас.
-                        startTime = Date.now();
-                        saveCurrentData();
+                    updateTimestamps();
+                    if (startTime !== null && endTime !== null && endTime > startTime) {
                         timerInterval = setInterval(updateTimer, 1000);
                         updateTimer();
                     } else {
+                        // Не все даты заданы или некорректны
                         progressFill.style.width = '0%';
                         progressFill.textContent = '0%';
                         progressFill.classList.add('expired');
-                        timeLeftDisplay.textContent = 'Укажите дату';
-                        saveCurrentData();
+                        timeLeftDisplay.textContent = 'Задайте корректные даты';
                     }
+                    saveCurrentData(); // сохраняем при изменении
                 }
 
-                // Обработчик изменения даты
-                endDateInput.addEventListener('change', function() {
-                    resetTimer();
-                });
-
-                // Обработчик изменения названия – сохраняем
+                // Обработчики событий на полях
                 nameInput.addEventListener('input', function() {
                     saveCurrentData();
                 });
 
-                // Запускаем таймер
-                resetTimer();
+                startDateInput.addEventListener('change', function() {
+                    resetTimer();
+                });
 
-                // Сохраняем ссылки для отладки, если нужно
-                row._timerData = {
-                    nameInput,
-                    endDateInput,
-                    progressFill,
-                    timeLeftDisplay,
-                    endTime,
-                    startTime,
-                    timerInterval,
-                    resetTimer,
-                    updateTimer,
-                    saveCurrentData
-                };
+                endDateInput.addEventListener('change', function() {
+                    resetTimer();
+                });
+
+                // Инициализация
+                resetTimer();
             });
         })();
     </script>
